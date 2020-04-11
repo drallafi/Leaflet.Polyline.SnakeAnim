@@ -29,6 +29,8 @@ L.Polyline.include({
 	_snakingIn: false,
 	_snakingOut: false,
 
+	// the marker that will follow head
+	_headMarker: null,
 
 	/// TODO: accept a 'map' parameter, fall back to addTo() in case
 	/// performance.now is not available.
@@ -55,6 +57,10 @@ L.Polyline.include({
 		// Init with just the first (0th) vertex in a new ring
 		// Twice because the first thing that this._snake is is chop the head.
 		this._latlngs = [[ this._snakeLatLngs[0][0], this._snakeLatLngs[0][0] ]];
+
+		if(this._headMarker !== null && !this._map.hasLayer(this._headMarker)){
+			this._map.addLayer(this._headMarker);
+		}
 
 		this._update();
 		this._snake();
@@ -97,7 +103,7 @@ L.Polyline.include({
 		}
 
 		this._update();
-		// Avoid concourant calls to _snake
+		// Avoid concurrent calls to _snake
 		if(!this._snakingIn){
 			this._snake();
 		}
@@ -193,7 +199,9 @@ L.Polyline.include({
 		if(this.options.followHead){
 			this._map.setView(headLatLng);
 		}
-
+		if(this._headMarker !== null){
+			this._headMarker.setLatLng(headLatLng);
+		}
 		return this;
 	},
 
@@ -255,6 +263,9 @@ L.Polyline.include({
 		if(!this._snakingOut){
 			this.setLatLngs(this._snakeLatLngs);
 		}
+		if(this.options.hideHeadMarkerOnEnd  && this._headMarker !== null && this._map.hasLayer(this._headMarker)){
+			this._map.removeLayer(this._headMarker);
+		}
 		this.fire('snakeend'); // to depreciate
 		this.fire('snakeInEnd');
 
@@ -275,17 +286,50 @@ L.Polyline.include({
 		if(this._snakeLatLngs){
 			this.setLatLngs(this._snakeLatLngs);
 		}
+		if(this._headMarker !== null){
+			if(this.options.hideHeadMarkerOnEnd){
+				if(this._map.hasLayer(this._headMarker)){
+					this._map.removeLayer(this._headMarker);
+				}
+			}else{
+				if(this._snakeLatLngs){
+					this._headMarker.setLatLng(this._snakeLatLngs[0][this._snakeLatLngs[0].length-1]);
+				}else{
+					this._headMarker.setLatLng(this._latlngs[this._latlngs.length-1]);
+				}
+				this._map.addLayer(this._headMarker);
+			}
+		}
+		return this;
+	},
 
+	snakeBindMarker: function (marker) {
+		if(marker !== null){
+			this._headMarker = marker;
+			if(this._snakingIn && !this._map.hasLayer(this._headMarker)){
+				map.addLayer(this._headMarker);
+			}
+		}
+		return this;
+	},
+
+	snakeUnbindMarker: function () {
+		if(this._headMarker !== null){
+			if(this._map.hasLayer(this._headMarker)) {
+				this._map.removeLayer(this._headMarker);
+			}
+			this._headMarker = null;
+		}
 		return this;
 	}
-
 });
 
 
 
 L.Polyline.mergeOptions({
 	snakingSpeed: 200,	// In pixels/sec
-	followHead: false	// center the map on the head
+	followHead: false,	// center the map on the head
+	hideHeadMarkerOnEnd: true	// hide the head marker when destination is reached
 });
 
 

@@ -3,10 +3,17 @@
 <head>
 	<meta charset="utf-8">
 	<title>Leaflet debug page</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css"/>
 
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
 		  integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
 		  crossorigin=""/>
+	<style>
+		.leaflet-div-icon{
+			border: none;
+			background: #ffffff00;
+		}
+	</style>
 	<script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
 			integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
 			crossorigin=""></script>
@@ -22,7 +29,9 @@
 		<button onclick='snake()'>SNAKE! IT'S A SNAKE!</button><button onclick='snakeOut()'>SNAKE! GO OUT!</button>
 	</div>
 	<div>
-		<p><label for="checkFollowHead">Follow head: </label><input type="checkbox" id="checkFollowHead" onclick="snakeFollow()"></p>
+		<p><label for="checkFollowHead">Follow head</label><input type="checkbox" id="checkFollowHead" onclick="snakeFollowHead()">
+			<label for="checkShowMarker">Show a marker on head</label><input type="checkbox" id="checkShowMarker" onclick="snakeShowMarker()">
+			<label for="checkHideHeadMarker">Hide the head marker on end</label><input type="checkbox" id="checkHideHeadMarker" onclick="snakeHideHeadMarkerOnEnd()"></p>
 		<button onclick='snakeLaunch()'>LAUNCH A SNAKE!</button><button onclick='snakeReset()'>RESET THE SNAKE!</button>
 	</div>
 
@@ -59,6 +68,9 @@
 
 		map.addLayer(path);
 
+		let carIcon = L.divIcon({html: '<i class="fas fa-car fa-2x" style="color:#ff0000;"></i>', iconAnchor:[12,20], popupAnchor:[0,-20]});
+		let headMarker = L.marker(latlngs[0], {icon: carIcon}).bindPopup("<p>I'm a fast <strong style='color: #ff0000'>red</strong> car!</p>");
+
 		path.bindPopup("Hello world");
 
 
@@ -71,9 +83,25 @@
 		}
 
 		let checkBoxHead = document.getElementById("checkFollowHead");
-		snakeFollow();
-		function snakeFollow(){
+		snakeFollowHead();
+		function snakeFollowHead(){
 			path.options.followHead = checkBoxHead.checked; //this can be setup during polyline creation
+		}
+
+		let checkBoxShowMarker = document.getElementById("checkShowMarker");
+		snakeShowMarker();
+		function snakeShowMarker(){
+			if(checkBoxShowMarker.checked){
+				path.snakeBindMarker(headMarker);
+			}else{
+				path.snakeUnbindMarker();
+			}
+		}
+
+		let checkBoxHideHeadMarker = document.getElementById("checkHideHeadMarker");
+		snakeHideHeadMarkerOnEnd();
+		function snakeHideHeadMarkerOnEnd(){
+			path.options.hideHeadMarkerOnEnd = checkBoxHideHeadMarker.checked; //this can be setup during polyline creation
 		}
 
 		function snakeLaunch(){
