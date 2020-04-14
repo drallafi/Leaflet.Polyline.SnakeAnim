@@ -34,6 +34,19 @@ in pixels per second. Pixels refer to the length of the polyline at the current
 zoom level.
 The default value is `200`.
 
+New option in `L.Polyline`: `snakeTimestamps`. This is an array of timestamps
+for each latlng of your polyline. It must contains only `Date()` types and must
+has same shape as the polyline latlngs. If it's null, the animation uses
+`snakingSpeed`.
+The default value is `null`.
+
+New option in `L.Polyline`: `snakingTimeSpeed`. This is the multiplication rate
+if you're using `snakeTimestamps`. It can be a floating point number.
+1 means that 1 real second takes 1 second in the animation.
+60 means that 60 real seconds take 1 seconds in the animation.
+The default value is `1`.
+
+
 New option in `L.LayerGroup`: `snakingPause`. This is the number of milliseconds
 to wait between layers in the group when doing a snaking animation.
 The default value is `200`.
@@ -56,6 +69,12 @@ fire the following events:
 Each one of theses event has the head or tail position as parameter.
 You can use it to do whatever you want. For example, you can make
 the map follow the head, as shown in demo files.
+
+If you're using the `snakeTimestamps` option, it will
+fire the following events:
+- `snakeInDate`: the head moves and give an interpolation of its datetime
+- `snakeOutDate`: the tail moves and give an interpolation of its datetime
+
 
 When a layer group is performing the snaking animation, it will
 fire the following events:

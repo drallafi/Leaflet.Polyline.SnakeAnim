@@ -43,13 +43,17 @@ L.Polyline.include({
 		}
 
 		this._snakingIn = true;
-		this._snakingTime = performance.now();
+		this._snakingTimestamp = performance.now();
 		this._snakingVertices = this._snakingRings = this._snakingDistance = 0;
 
 		if (!this._snakeLatLngs) {
 			this._snakeLatLngs = L.LineUtil.isFlat(this._latlngs) ?
 				[ this._latlngs ] :
 				this._latlngs ;
+		}
+		if(this.options.snakeTimestamps !== null){
+			this._snakeCleanTimestamps();
+			this._snakingTime = 0;
 		}
 
 		// Init with just the first (0th) vertex in a new ring
@@ -74,13 +78,17 @@ L.Polyline.include({
 		}
 
 		this._snakingOut = true;
-		this._snakingTime = performance.now();
+		this._snakingTimestamp = performance.now();
 		this._snakingTailVertices = this._snakingTailRings = this._snakingTailDistance = 0;
 
 		if (!this._snakeLatLngs) {
 			this._snakeLatLngs = L.LineUtil.isFlat(this._latlngs) ?
 				[ this._latlngs ] :
 				this._latlngs ;
+		}
+		if(this.options.snakeTimestamps !== null){
+			this._snakeCleanTimestamps();
+			this._snakingTailTime = 0;
 		}
 
 		if(!this._snakingIn){
@@ -111,9 +119,9 @@ L.Polyline.include({
 		if (!this._map) return;
 
 		let now = performance.now();
-		let timeDiff = now - this._snakingTime;	// In milliseconds
+		let timeDiff = now - this._snakingTimestamp;	// In milliseconds
 		timeDiff = (timeDiff === 0 ? 0.001 : timeDiff); // avoids low time resolution issues in some browsers
-		this._snakingTime = now;
+		this._snakingTimestamp = now;
 
 		// Chop the head from the previous frame
 		if(this._snakingIn){
@@ -141,47 +149,95 @@ L.Polyline.include({
 	},
 
 	_snakeHeadForward: function(timeDiff) {
-		let forward = timeDiff * this.options.snakingSpeed / 1000;	// In pixels
-
 		// Calculate distance from current vertex to next vertex
 		let currPoint = this._map.latLngToContainerPoint(
 			this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ]);
 		let nextPoint = this._map.latLngToContainerPoint(
 			this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices + 1 ]);
 
-		let distance = currPoint.distanceTo(nextPoint);
-
-		//console.log('Distance head to next point:', distance, '; Now at: ', this._snakingDistance, '; Must travel forward:', forward, '_snakingTime', this._snakingTime, '_snakingVertices', this._snakingVertices);
+		//console.log('Distance head to next point:', distance, '; Now at: ', this._snakingDistance, '; Must travel forward:', forward, '_snakingTimestamp', this._snakingTimestamp, '_snakingVertices', this._snakingVertices);
 		//console.log('Snake vertices: ', this._latlngs,';this._snakeLatLngs',this._snakeLatLngs);
 
-		while (this._snakingDistance + forward > distance) {
-			// Jump to next vertex
-			this._snakingVertices++;
-			this._latlngs[ this._snakingRings ].push( this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ] );
+		let percent = 0;
 
-			if (this._snakingVertices >= this._snakeLatLngs[ this._snakingRings ].length - 1 ) {
-				if (this._snakingRings >= this._snakeLatLngs.length - 1 ) {
-					return this._snakeInEnd();
-				} else {
-					this._snakingVertices = 0;
-					this._snakingRings++;
-					this._latlngs[ this._snakingRings ] = [
-						this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ]
-					];
+		if (this.options.snakeTimestamps !== null){ // Use speed with points' timestamps
+			let lastDate = this.options.snakeTimestamps[ this._snakingRings ][ this._snakingVertices ];
+			let nextDate = this.options.snakeTimestamps[ this._snakingRings ][ this._snakingVertices + 1 ];
+
+			let forward = timeDiff * this.options.snakingTimeSpeed;	// In milliseconds
+
+			let distance = (nextDate-lastDate); // Distance is a time in milliseconds
+			while (this._snakingTime + forward > distance) {
+				// Jump to next vertex
+				this._snakingVertices++;
+				this._latlngs[ this._snakingRings ].push( this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ] );
+
+				if (this._snakingVertices >= this._snakeLatLngs[ this._snakingRings ].length - 1 ) {
+					if (this._snakingRings >= this._snakeLatLngs.length - 1 ) {
+						return this._snakeInEnd();
+					} else {
+						this._snakingVertices = 0;
+						this._snakingRings++;
+						this._latlngs[ this._snakingRings ] = [
+							this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ]
+						];
+					}
 				}
+
+				this._snakingTime -= distance;
+				lastDate = this.options.snakeTimestamps[ this._snakingRings ][ this._snakingVertices ];
+				nextDate = this.options.snakeTimestamps[ this._snakingRings ][ this._snakingVertices + 1 ];
+				distance = (nextDate-lastDate); // Distance is in milliseconds
+
+				currPoint = this._map.latLngToContainerPoint(
+					this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ]);
+				nextPoint = this._map.latLngToContainerPoint(
+					this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices + 1]);
 			}
 
-			this._snakingDistance -= distance;
-			currPoint = this._map.latLngToContainerPoint(
-				this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ]);
-			nextPoint = this._map.latLngToContainerPoint(
-				this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices + 1]);
-			distance = currPoint.distanceTo(nextPoint);
+			this._snakingTime += forward;
+			percent = this._snakingTime / distance;
+
+			let currentDate = new Date(lastDate.getTime());
+			currentDate.setMilliseconds(currentDate.getMilliseconds() + this._snakingTime);
+			this.fire('snakeInDate', [currentDate]);
+			//console.log('this._snakingTime', this._snakingTime, timeDiff, timeDiff * this.options.snakingTimeSpeed, 'last timestamp lastDate: ', lastDate, ' next timestamp: ', nextDate, 'delta', nextDate - lastDate, 'delta percent', (forward)/(nextDate - lastDate));
+
+		}else{ // Use speed in pixel
+
+			let forward = timeDiff * this.options.snakingSpeed / 1000;	// In pixels
+
+			let distance = currPoint.distanceTo(nextPoint);
+			while (this._snakingDistance + forward > distance) {
+				// Jump to next vertex
+				this._snakingVertices++;
+				this._latlngs[ this._snakingRings ].push( this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ] );
+
+				if (this._snakingVertices >= this._snakeLatLngs[ this._snakingRings ].length - 1 ) {
+					if (this._snakingRings >= this._snakeLatLngs.length - 1 ) {
+						return this._snakeInEnd();
+					} else {
+						this._snakingVertices = 0;
+						this._snakingRings++;
+						this._latlngs[ this._snakingRings ] = [
+							this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ]
+						];
+					}
+				}
+
+				this._snakingDistance -= distance;
+				currPoint = this._map.latLngToContainerPoint(
+					this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices ]);
+				nextPoint = this._map.latLngToContainerPoint(
+					this._snakeLatLngs[ this._snakingRings ][ this._snakingVertices + 1]);
+				distance = currPoint.distanceTo(nextPoint);
+			}
+
+			this._snakingDistance += forward;
+			percent = this._snakingDistance / distance;
 		}
 
-		this._snakingDistance += forward;
-
-		let percent = this._snakingDistance / distance;
+		//console.log(new Date(this._snakeTimestamps[ this._snakingRings ][ this._snakingVertices+1 ]*percent +  this._snakeTimestamps[ this._snakingRings ][ this._snakingVertices ]*(1-percent)));
 
 		let headPoint = nextPoint.multiplyBy(percent).add(
 			currPoint.multiplyBy( 1 - percent )
@@ -196,7 +252,6 @@ L.Polyline.include({
 	},
 
 	_snakeTailForward: function(timeDiff) {
-		let forward = timeDiff * this.options.snakingSpeed / 1000;	// In pixels
 
 		// Calculate distance from current vertex to next vertex
 		let currPoint = this._map.latLngToContainerPoint(
@@ -204,38 +259,84 @@ L.Polyline.include({
 		let nextPoint = this._map.latLngToContainerPoint(
 			this._snakeLatLngs[ this._snakingTailRings ][ this._snakingTailVertices + 1 ]);
 
-		let distance = currPoint.distanceTo(nextPoint);
-
-		//console.log('Distance tail to next point:', distance, '; Now at: ', this._snakingTailDistance, '; Must travel forward:', forward, '; _snakingTime', this._snakingTime, '; _snakingTailVertices', this._snakingTailVertices);
+		//console.log('Distance tail to next point:', distance, '; Now at: ', this._snakingTailDistance, '; Must travel forward:', forward, '; _snakingTimestamp', this._snakingTimestamp, '; _snakingTailVertices', this._snakingTailVertices);
 		//console.log('Snake vertices: ', this._latlngs,';this._snakeLatLngs',this._snakeLatLngs);
 
-		while (this._snakingTailDistance + forward > distance) {
-			// Jump to next vertex
-			this._snakingTailVertices++;
-			this._latlngs[this._snakingTailRings].shift();
+		let percent = 0;
 
-			if (this._snakingTailVertices >= this._snakeLatLngs[ this._snakingTailRings ].length - 1 ) {
-				if (this._snakingTailRings >= this._snakeLatLngs.length - 1 ) {
-					return this._snakeOutEnd();
-				} else {
-					this._snakingTailVertices = 0;
-					this._latlngs[ this._snakingTailRings ] = [];
-					this._snakingTailRings++;
-					this._latlngs[ this._snakingTailRings ].shift(); // Remove first point of new line
+		if (this.options.snakeTimestamps !== null){ // Use speed with points' timestamps
+			let lastDate = this.options.snakeTimestamps[ this._snakingTailRings ][ this._snakingTailVertices ];
+			let nextDate = this.options.snakeTimestamps[ this._snakingTailRings ][ this._snakingTailVertices + 1 ];
+
+			let forward = timeDiff * this.options.snakingTimeSpeed;	// In milliseconds
+
+			let distance = (nextDate-lastDate); // Distance is a time in milliseconds
+			while (this._snakingTailTime + forward > distance) {
+				// Jump to next vertex
+				this._snakingTailVertices++;
+				this._latlngs[this._snakingTailRings].shift();
+
+				if (this._snakingTailVertices >= this._snakeLatLngs[this._snakingTailRings].length - 1) {
+					if (this._snakingTailRings >= this._snakeLatLngs.length - 1) {
+						return this._snakeOutEnd();
+					} else {
+						this._snakingTailVertices = 0;
+						this._latlngs[this._snakingTailRings] = [];
+						this._snakingTailRings++;
+						this._latlngs[this._snakingTailRings].shift(); // Remove first point of new line
+					}
 				}
+
+				this._snakingTailTime -= distance;
+				lastDate = this.options.snakeTimestamps[ this._snakingTailRings ][ this._snakingTailVertices ];
+				nextDate = this.options.snakeTimestamps[ this._snakingTailRings ][ this._snakingTailVertices + 1 ];
+				distance = (nextDate-lastDate); // Distance is in milliseconds
+
+				currPoint = this._map.latLngToContainerPoint(
+					this._snakeLatLngs[ this._snakingTailRings ][ this._snakingTailVertices ]);
+				nextPoint = this._map.latLngToContainerPoint(
+					this._snakeLatLngs[ this._snakingTailRings ][ this._snakingTailVertices + 1]);
 			}
 
-			this._snakingTailDistance -= distance;
-			currPoint = this._map.latLngToContainerPoint(
-				this._snakeLatLngs[ this._snakingTailRings ][ this._snakingTailVertices ]);
-			nextPoint = this._map.latLngToContainerPoint(
-				this._snakeLatLngs[this._snakingTailRings ][ this._snakingTailVertices + 1 ]);
-			distance = currPoint.distanceTo(nextPoint);
+			this._snakingTailTime += forward;
+			percent = this._snakingTailTime / distance;
+
+			let currentDate = new Date(lastDate.getTime());
+			currentDate.setMilliseconds(currentDate.getMilliseconds() + this._snakingTailTime);
+			this.fire('snakeOutDate', [currentDate]);
+			//console.log('this._snakingTailTime', this._snakingTailTime, timeDiff, timeDiff * this.options.snakingTimeSpeed, 'last timestamp lastDate: ', lastDate, ' next timestamp: ', nextDate, 'delta', nextDate - lastDate, 'delta percent', (forward)/(nextDate - lastDate));
+
+		}else { // Use speed in pixel
+			let forward = timeDiff * this.options.snakingSpeed / 1000;	// In pixels
+
+			let distance = currPoint.distanceTo(nextPoint);
+			while (this._snakingTailDistance + forward > distance) {
+				// Jump to next vertex
+				this._snakingTailVertices++;
+				this._latlngs[this._snakingTailRings].shift();
+
+				if (this._snakingTailVertices >= this._snakeLatLngs[this._snakingTailRings].length - 1) {
+					if (this._snakingTailRings >= this._snakeLatLngs.length - 1) {
+						return this._snakeOutEnd();
+					} else {
+						this._snakingTailVertices = 0;
+						this._latlngs[this._snakingTailRings] = [];
+						this._snakingTailRings++;
+						this._latlngs[this._snakingTailRings].shift(); // Remove first point of new line
+					}
+				}
+
+				this._snakingTailDistance -= distance;
+				currPoint = this._map.latLngToContainerPoint(
+					this._snakeLatLngs[this._snakingTailRings][this._snakingTailVertices]);
+				nextPoint = this._map.latLngToContainerPoint(
+					this._snakeLatLngs[this._snakingTailRings][this._snakingTailVertices + 1]);
+				distance = currPoint.distanceTo(nextPoint);
+			}
+
+			this._snakingTailDistance += forward;
+			percent = this._snakingTailDistance / distance;
 		}
-
-		this._snakingTailDistance += forward;
-
-		let percent = this._snakingTailDistance / distance;
 
 		let tailPoint = nextPoint.multiplyBy(percent).add(
 			currPoint.multiplyBy( 1 - percent )
@@ -256,6 +357,10 @@ L.Polyline.include({
 		if(!this._snakingOut){
 			this.setLatLngs(this._snakeLatLngs);
 		}
+		if(this.options.snakeTimestamps !== null){
+			let lastDate = this.options.snakeTimestamps[this.options.snakeTimestamps.length-1];
+			this.fire('snakeInDate', [lastDate[lastDate.length-1]]);
+		}
 		let lastPath = this._snakeLatLngs[this._snakeLatLngs.length-1];
 		this.fire('snakeInEnd', lastPath[lastPath.length-1]);
 
@@ -265,13 +370,19 @@ L.Polyline.include({
 	_snakeOutEnd: function() {
 
 		this._snakingOut = false;
+		if(this.options.snakeTimestamps !== null){
+			let lastDate = this.options.snakeTimestamps[this.options.snakeTimestamps.length-1];
+			this.fire('snakeOutDate', [lastDate[lastDate.length-1]]);
+		}
 		let lastPath = this._snakeLatLngs[this._snakeLatLngs.length-1];
 		this.fire('snakeOutEnd', lastPath[lastPath.length-1]);
 
 		return this;
 	},
 
-	snakeReset: function () {
+	// @method snakeReset(): this
+	// Reset the snake
+	snakeReset: function() {
 
 		this._snakingIn = this._snakingOut = false;
 		if(this._snakeLatLngs){
@@ -279,6 +390,37 @@ L.Polyline.include({
 		}
 
 		return this;
+	},
+
+	// @method _snakeCleanTimestamps(): this
+	// Clean the given array of timestamps. If it's not valid, remove it to use pixel speed.
+	_snakeCleanTimestamps: function(){
+		let warnMessage = "The given snakeTimestamps array hasn't the same shape as latlngs. Fallback to pixel speed.";
+		if(this.options.snakeTimestamps !== null){
+			this.options.snakeTimestamps = L.LineUtil.isFlat(this.options.snakeTimestamps) ?
+				[ this.options.snakeTimestamps ] :
+				this.options.snakeTimestamps;
+			if(this.options.snakeTimestamps.length !== this._snakeLatLngs.length){
+				console.warn(warnMessage);
+				this.options.snakeTimestamps = null;
+				return null;
+			}
+			for (let i = 0; i < this.options.snakeTimestamps.length; i++){
+				if(this.options.snakeTimestamps[i].length !== this._snakeLatLngs[i].length){
+					console.warn(warnMessage);
+					this.options.snakeTimestamps = null;
+					return null;
+				}
+				for (let j = 0; j < this.options.snakeTimestamps[i].length; j++){
+					if(!this.options.snakeTimestamps[i][j] instanceof Date){
+						console.warn("The given snakeTimestamps array contains a non-date value. Fallback to pixel speed.");
+						this.options.snakeTimestamps = null;
+						return null;
+					}
+				}
+			}
+		}
+		return this.options.snakeTimestamps;
 	}
 
 });
@@ -286,7 +428,13 @@ L.Polyline.include({
 
 
 L.Polyline.mergeOptions({
-	snakingSpeed: 200,			// In pixels/sec
+	snakingSpeed: 200,		// In pixels/sec
+	// Array of timestamps, used if not null. Must be same shape as this._snakeLatLngs
+	snakeTimestamps: null,
+	// Rate in seconds. Can be a floating point number.
+	// 1 means that 1 real second takes 1 second in the animation.
+	// 60 means that 60 real seconds take 1 seconds in the animation
+	snakingTimeSpeed: 1,
 });
 
 

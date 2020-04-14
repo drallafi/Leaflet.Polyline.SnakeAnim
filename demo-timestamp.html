@@ -22,40 +22,44 @@
 	<script src="L.Polyline.SnakeAnim.js"></script>
 </head>
 <body>
-	<div id="map" style="width: 800px; height: 600px; border: 1px solid #ccc"></div>
+	<div id="map" style="width: 800px; height: 600px; border: 1px solid #ccc">
+		<p style="z-index:500; bottom: 10px; position: absolute; width: 100%; text-align: center; font-size: 20px; ">Playback time: <span id="playbackTime"></span></p>
+	</div>
 
 	<div>
 		<p></p>
+		<label for="speedValue">PlaybackSpeed</label><input type="number" id="speedValue" min="0" value="60" step="0.1" onchange="changeSpeed()"></p>
 		<button onclick='snake()'>SNAKE! IT'S A SNAKE!</button><button onclick='snakeOut()'>SNAKE! GO OUT!</button>
 	</div>
 	<div>
-		<p><label for="checkFollowHead">Follow head: </label><input type="checkbox" id="checkFollowHead" onclick="snakeFollow()">
+		<p><label for="checkFollowHead">Follow head</label><input type="checkbox" id="checkFollowHead" onclick="snakeFollow()">
 			<label for="checkShowMarker">Show a marker on head</label><input type="checkbox" id="checkShowMarker" onclick="snakeShowMarker()">
-			<label for="checkHideHeadMarker">Hide the head marker at the end</label><input type="checkbox" id="checkHideHeadMarker" onclick="snakeHideHeadMarkerOnEnd()"></p>
+			<label for="checkHideHeadMarker">Hide the head marker at the end</label><input type="checkbox" id="checkHideHeadMarker"></p>
 		<button onclick='snakeLaunch()'>LAUNCH A SNAKE!</button><button onclick='snakeReset()'>RESET THE SNAKE!</button>
 	</div>
 
-	<script src="route.js"></script>
+	<script src="route-time.js"></script>
 	<script>
-		/*let latlngs = [];
+		let latlngs = [];
+		let timestamps = [];
 		for (let i = 0; i < route.length; i++) {
-			latlngs.push(new L.LatLng(route[i][0], route[i][1]));
-		}*/
+			timestamps.push(new Date(route[i].time));
+			latlngs.push(new L.LatLng(route[i].lat, route[i].lon));
+		}
 		// Shorter path for development
-		let latlngs = [new L.LatLng(51,0), new L.LatLng(52,0), new L.LatLng(52,1), new L.LatLng(51,1), new L.LatLng(51.5,0.5)];
-		let timestamps = [[new Date('2020-01-01T00:00:00'), new Date('2020-01-01T00:01:00'), new Date('2020-01-01T00:02:00'), new Date('2020-01-01T00:04:00'), new Date('2020-01-01T00:05:00')]];
+		//let latlngs = [new L.LatLng(51,0), new L.LatLng(52,0), new L.LatLng(52,1), new L.LatLng(51,1), new L.LatLng(51.5,0.5)];
+		//let timestamps = [[new Date('2020-01-01T00:00:00'), new Date('2020-01-01T00:01:00'), new Date('2020-01-01T00:02:00'), new Date('2020-01-01T00:04:00'), new Date('2020-01-01T00:05:00')]];
 		const len = latlngs.length;
 
-		let path = L.polyline(latlngs, { snakingTimeSpeed: 100 });
-		path._snakeTimestamps = timestamps;
-		let map = L.map('map');
+		let path = L.polyline(latlngs, { snakeTimestamps: timestamps, snakingTimeSpeed: 60 }); // It goes 100 times faster than it took in real life
+		let map = L.map('map',{
+			center: latlngs[0],
+			zoom: 13
+		});
 
 		let positron = L.tileLayer('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
 			attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="http://cartodb.com/attributions">CartoDB</a>'
 		}).addTo(map);
-
-
-		map.fitBounds(L.latLngBounds(latlngs));
 
 		map.addLayer(L.marker(latlngs[0]));
 		map.addLayer(L.marker(latlngs[len - 1]));
@@ -88,8 +92,8 @@
 
 		let checkBoxHead = document.getElementById("checkFollowHead");
 
-		let carIcon = L.divIcon({html: '<i class="fas fa-car fa-2x" style="color:#ff0000;"></i>', iconAnchor:[12,20], popupAnchor:[0,-20]});
-		let headMarker = L.marker(latlngs[0], {icon: carIcon}).bindPopup("<p>I'm a fast <strong style='color: #ff0000'>red</strong> car!</p>", { autoPan: false });
+		let carIcon = L.divIcon({html: '<i class="fas fa-plane fa-2x" style="color:#0098ff;"></i>', iconAnchor:[0,12], popupAnchor:[12,-12]});
+		let headMarker = L.marker(latlngs[0], {icon: carIcon}).bindPopup("<p>I was a real airplane!</p>", { autoPan: false });
 
 		let checkBoxShowMarker = document.getElementById("checkShowMarker");
 		let checkBoxHideHeadMarker = document.getElementById("checkHideHeadMarker");
@@ -102,13 +106,18 @@
 			}
 		}
 
+		let inputSpeedValue = document.getElementById("speedValue");
+		changeSpeed();
+		function changeSpeed(){
+			path.options.snakingTimeSpeed = inputSpeedValue.value;
+		}
 
 		/*path.on('snakeInStart snakeOutStart snakeIn snakeOut snakeInEnd snakeOutEnd', function(ev){
 			console.log(ev.type);
 		});*/
 
 		path.on('snakeInStart', function(ev){
-			if(!map.hasLayer(headMarker)){
+			if(checkBoxShowMarker.checked && !map.hasLayer(headMarker)){
 				map.addLayer(headMarker);
 			}
 		});
@@ -118,6 +127,13 @@
 				map.setView(ev);
 			}
 			headMarker.setLatLng(ev);
+		});
+
+		let playbackTimeDiv = document.getElementById("playbackTime");
+		path.on('snakeInDate', function(ev){
+			//console.log(ev);
+			let date = new Date(ev[0]);
+			playbackTimeDiv.textContent = date.getFullYear() + "/" + (date.getMonth()+1) + "/" + date.getDate() + " " + date.getHours().toString().padStart(2, '0') + ":" + date.getMinutes().toString().padStart(2, '0') + ":" + date.getSeconds().toString().padStart(2, '0') + "," + date.getMilliseconds().toString().padStart(3, '0');
 		});
 
 		path.on('snakeInEnd', function(ev){
