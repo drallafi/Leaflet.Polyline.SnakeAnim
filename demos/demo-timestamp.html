@@ -19,7 +19,7 @@
 			crossorigin=""></script>
 
 
-	<script src="L.Polyline.SnakeAnim.js"></script>
+	<script src="../L.Polyline.SnakeAnim.js"></script>
 </head>
 <body>
 	<div id="map" style="width: 800px; height: 600px; border: 1px solid #ccc">
@@ -32,8 +32,8 @@
 		<button onclick='snake()'>SNAKE! IT'S A SNAKE!</button><button onclick='snakeOut()'>SNAKE! GO OUT!</button>
 	</div>
 	<div>
-		<p><label for="checkFollowHead">Follow head</label><input type="checkbox" id="checkFollowHead" onclick="snakeFollow()">
-			<label for="checkShowMarker">Show a marker on head</label><input type="checkbox" id="checkShowMarker" onclick="snakeShowMarker()">
+		<p><label for="checkFollowHead">Follow head</label><input type="checkbox" id="checkFollowHead" checked="true" onclick="snakeFollow()">
+			<label for="checkShowMarker">Show a marker on head</label><input type="checkbox" id="checkShowMarker" checked="true" onclick="snakeShowMarker()">
 			<label for="checkHideHeadMarker">Hide the head marker at the end</label><input type="checkbox" id="checkHideHeadMarker"></p>
 		<button onclick='snakeLaunch()'>LAUNCH A SNAKE!</button><button onclick='snakeReset()'>RESET THE SNAKE!</button>
 	</div>
