@@ -1,5 +1,3 @@
-'use strict';
-
 /*"THE BEER-WARE LICENSE":
 <ivan@sanchezortega.es> originaly wrote this file.
 Later, <pitou.games@gmail.com> enhanced this file, in order to add more feature.
